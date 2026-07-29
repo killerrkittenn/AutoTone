@@ -102,7 +102,15 @@ async function predict(bitmap) {
   if (model) {
     return tf.tidy(() => {
       const tensor = tf.browser.fromPixels(imageData).toFloat().div(255).expandDims(0);
-      const [brightness, contrast, saturation] = model.predict(tensor).dataSync();
+      // Модель обучалась на таргетах, поделенных на 2 (см. train_model.py),
+      // чтобы они попадали в диапазон обычного sigmoid (0,1) без
+      // отдельного слоя масштабирования (Lambda/Rescaling не
+      // поддерживаются tensorflowjs_converter). Поэтому здесь нужно
+      // умножить сырой выход модели обратно на 2 - без этого шага
+      // коэффициенты приходят в 2 раза заниженными (около 0.5 вместо
+      // ~1.0 для "без изменений"), из-за чего все фото становятся
+      // тусклыми и обесцвеченными.
+      const [brightness, contrast, saturation] = model.predict(tensor).dataSync().map((v) => v * 2);
       return { brightness, contrast, saturation };
     });
   }
