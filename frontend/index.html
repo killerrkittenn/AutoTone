@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AutoTone — авто-коррекция фото в браузере</title>
+<link rel="icon" href="data:," />
+<style>
+  :root{
+    --mono:"IBM Plex Mono", Consolas, monospace; --sans:"Inter", system-ui, sans-serif;
+  }
+  html[data-theme="dark"]{
+    --bg:#0f1210; --panel:#171b18; --line:#2a2f2b; --ink:#eef1ee;
+    --muted:#8b9289; --accent:#57a86a; --accent-ink:#08130b; --accent-dim:#1f3a26; --danger:#e2695a;
+  }
+  html[data-theme="light"]{
+    --bg:#f7f7f4; --panel:#ffffff; --line:#dedad0; --ink:#1c1f1a;
+    --muted:#6b6f66; --accent:#2f7a45; --accent-ink:#ffffff; --accent-dim:#e6f2e9; --danger:#b3412e;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); transition:background .15s, color .15s;}
+  .wrap{max-width:960px; margin:0 auto; padding:32px 20px 80px;}
+
+  .topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:28px;}
+  .tag{font-family:var(--mono); font-size:11px; color:var(--accent); text-transform:uppercase; letter-spacing:.08em;}
+  h1{font-size:22px; margin:2px 0 0;}
+  .theme-toggle{
+    font-family:var(--mono); font-size:12px; border:1px solid var(--line); background:var(--panel);
+    color:var(--ink); border-radius:99px; padding:6px 14px; cursor:pointer;
+  }
+
+  .drop{
+    border:1px dashed var(--line); border-radius:10px; padding:28px; text-align:center;
+    cursor:pointer; display:block; background:var(--panel);
+  }
+  .drop:hover{border-color:var(--accent);}
+  .drop input{display:none;}
+  .drop b{font-size:14px;} .drop small{display:block; color:var(--muted); font-family:var(--mono); margin-top:6px;}
+
+  .queue{margin-top:20px; display:flex; flex-direction:column; gap:10px;}
+  .item{background:var(--panel); border:1px solid var(--line); border-radius:9px; padding:14px 16px;}
+  .item-head{display:flex; align-items:center; gap:12px;}
+  .item-head img.thumb{width:44px; height:44px; object-fit:cover; border-radius:6px; background:#8883;}
+  .item-name{flex:1; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .badge{font-family:var(--mono); font-size:10px; padding:3px 8px; border-radius:99px; background:var(--accent-dim); color:var(--accent); text-transform:uppercase;}
+  .badge.error{background:#3a201c; color:var(--danger);}
+  .bar{height:4px; background:var(--line); border-radius:99px; margin-top:10px; overflow:hidden;}
+  .bar > div{height:100%; background:var(--accent); width:0%; transition:width .2s;}
+
+  .actions{display:flex; gap:8px; margin-top:12px;}
+  button{font-family:var(--sans); font-size:13px; font-weight:600; padding:8px 14px; border-radius:6px; border:1px solid var(--accent); background:transparent; color:var(--accent); cursor:pointer;}
+  button.primary{background:var(--accent); color:var(--accent-ink);}
+  button:disabled{opacity:.35; cursor:not-allowed;}
+
+  .detail{margin-top:14px; display:none;}
+  .detail.open{display:block;}
+  .compare{position:relative; border-radius:8px; overflow:hidden; user-select:none; border:1px solid var(--line); background:var(--line);}
+  .compare img{display:block; width:100%; height:auto;}
+  .compare .before-wrap{position:absolute; top:0; left:0; height:100%; width:50%; overflow:hidden; border-right:2px solid var(--accent);}
+  .compare .before-wrap img{width:var(--full-w, 100%); max-width:none; height:100%; object-fit:cover;}
+  .handle{position:absolute; top:50%; left:var(--full-handle, 50%); width:26px; height:26px; background:var(--accent); border-radius:50%; transform:translate(-50%,-50%); cursor:ew-resize; display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--accent-ink); pointer-events:none;}
+  .slider-range{position:absolute; inset:0; width:100%; opacity:0; cursor:ew-resize; margin:0;}
+  .compare-labels{display:flex; justify-content:space-between; font-family:var(--mono); font-size:10px; color:var(--muted); text-transform:uppercase; margin-top:6px;}
+
+  .controls{margin-top:14px; display:grid; grid-template-columns:1fr; gap:10px;}
+  .control{display:grid; grid-template-columns:90px 1fr 46px; align-items:center; gap:10px; font-family:var(--mono); font-size:12px; color:var(--muted);}
+  .control input[type=range]{width:100%;}
+
+  .log{margin-top:26px; font-family:var(--mono); font-size:11px; color:var(--muted); max-height:120px; overflow-y:auto;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <p class="tag">AutoTone · ML в браузере</p>
+      <h1>Авто-коррекция яркости, контраста и цветности</h1>
+    </div>
+    <button class="theme-toggle" id="themeToggle">Светлая тема</button>
+  </div>
+
+  <label class="drop" id="drop">
+    <input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.bmp,.heic,.heif" multiple />
+    <b>Перетащите фото сюда или нажмите, чтобы выбрать</b>
+    <small>JPG · PNG · HEIC · BMP · до 15 Мпк · можно несколько сразу</small>
+  </label>
+
+  <div class="queue" id="queue"></div>
+  <div class="log" id="log"></div>
+</div>
+
+<template id="itemTemplate">
+  <div class="item">
+    <div class="item-head">
+      <img class="thumb" />
+      <div class="item-name"></div>
+      <span class="badge">queued</span>
+    </div>
+    <div class="bar"><div></div></div>
+
+    <div class="actions">
+      <button class="primary dl" disabled>Скачать</button>
+      <button class="cancel">Отменить</button>
+    </div>
+
+    <div class="detail">
+      <div class="compare">
+        <img class="after" />
+        <div class="before-wrap"><img class="before" /></div>
+        <input class="slider-range" type="range" min="0" max="100" value="50" />
+        <div class="handle">⇔</div>
+      </div>
+      <div class="compare-labels"><span>До</span><span>После</span></div>
+
+      <div class="controls">
+        <label class="control">Яркость <input type="range" data-k="brightness" min="0.4" max="1.8" step="0.01" /><span></span></label>
+        <label class="control">Контраст <input type="range" data-k="contrast" min="0.4" max="1.8" step="0.01" /><span></span></label>
+        <label class="control">Цветность <input type="range" data-k="saturation" min="0.4" max="1.8" step="0.01" /><span></span></label>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script type="module">
+  import { PhotoEnhancer } from './src/photoEnhancer.js';
+
+  // --- тема ---
+  const root = document.documentElement;
+  const themeToggle = document.getElementById('themeToggle');
+  function applyTheme(theme) {
+    root.setAttribute('data-theme', theme);
+    themeToggle.textContent = theme === 'dark' ? 'Светлая тема' : 'Тёмная тема';
+    localStorage.setItem('autotone-theme', theme);
+  }
+  applyTheme(localStorage.getItem('autotone-theme') || 'dark');
+  themeToggle.addEventListener('click', () => {
+    applyTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+
+  // --- основная логика ---
+  const api = new PhotoEnhancer();
+  const drop = document.getElementById('drop');
+  const fileInput = document.getElementById('fileInput');
+  const queueEl = document.getElementById('queue');
+  const template = document.getElementById('itemTemplate');
+  const log = document.getElementById('log');
+  const rows = new Map(); // taskId -> {el}
+
+  const logLine = (t) => {
+    const d = document.createElement('div');
+    d.textContent = `${new Date().toLocaleTimeString()}  ${t}`;
+    log.prepend(d);
+  };
+
+  ['dragover', 'dragleave', 'drop'].forEach((evt) => {
+    drop.addEventListener(evt, (e) => {
+      e.preventDefault();
+      if (evt === 'drop') [...e.dataTransfer.files].forEach(addFile);
+    });
+  });
+  fileInput.addEventListener('change', () => {
+    [...fileInput.files].forEach(addFile);
+    fileInput.value = '';
+  });
+
+  async function addFile(file) {
+    const node = template.content.cloneNode(true);
+    const el = node.querySelector('.item');
+    el.querySelector('.item-name').textContent = file.name;
+    const previewUrl = URL.createObjectURL(file);
+    el.querySelector('.thumb').src = previewUrl;
+    el.querySelector('.before').src = previewUrl;
+    queueEl.appendChild(el);
+
+    // Ширина картинки внутри обрезанной "до"-обёртки должна всегда совпадать
+    // с шириной всего блока сравнения (а не с шириной самой обёртки,
+    // обрезанной до X%) - иначе фото визуально "плющится". Отслеживаем
+    // фактический размер контейнера через ResizeObserver.
+    const compareEl = el.querySelector('.compare');
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        compareEl.style.setProperty('--full-w', `${entry.contentRect.width}px`);
+      }
+    });
+    ro.observe(compareEl);
+
+    try {
+      const taskId = await api.submitTask(file);
+      rows.set(taskId, { el, ro, previewUrl });
+      logLine(`поставлена задача: ${file.name}`);
+      wireControls(taskId, el);
+    } catch (err) {
+      el.querySelector('.badge').textContent = 'error';
+      el.querySelector('.badge').classList.add('error');
+      logLine(`ошибка: ${err.message}`);
+    }
+  }
+
+  api.addEventListener('statuschange', async ({ detail }) => {
+    const row = rows.get(detail.taskId);
+    if (!row) return;
+    const { el } = row;
+
+    el.querySelector('.badge').textContent = detail.status;
+    el.querySelector('.badge').classList.toggle('error', detail.status === 'error');
+    el.querySelector('.bar > div').style.width = `${detail.progress}%`;
+
+    if (detail.status === 'done') {
+      const blob = await api.getResult(detail.taskId);
+      el.querySelector('.after').src = URL.createObjectURL(blob);
+      el.querySelector('.detail').classList.add('open');
+      el.querySelector('.dl').disabled = false;
+
+      const coeffs = api.getSuggestedCoefficients(detail.taskId);
+      ['brightness', 'contrast', 'saturation'].forEach((k) => {
+        const input = el.querySelector(`input[data-k="${k}"]`);
+        input.value = coeffs[k].toFixed(2);
+        input.nextElementSibling.textContent = coeffs[k].toFixed(2);
+      });
+    }
+  });
+
+  function wireControls(taskId, el) {
+    const beforeWrap = el.querySelector('.before-wrap');
+    const handle = el.querySelector('.handle');
+    const range = el.querySelector('.slider-range');
+    range.addEventListener('input', () => {
+      beforeWrap.style.width = `${range.value}%`;
+      handle.style.setProperty('--full-handle', `${range.value}%`);
+    });
+
+    el.querySelectorAll('.controls input[type=range]').forEach((input) => {
+      input.addEventListener('change', async () => {
+        input.nextElementSibling.textContent = Number(input.value).toFixed(2);
+        const coeffs = {
+          brightness: Number(el.querySelector('[data-k=brightness]').value),
+          contrast: Number(el.querySelector('[data-k=contrast]').value),
+          saturation: Number(el.querySelector('[data-k=saturation]').value),
+        };
+        const blob = await api.renderWithAdjustment(taskId, coeffs);
+        el.querySelector('.after').src = URL.createObjectURL(blob);
+        logLine('ручная донастройка пересчитана на клиенте');
+      });
+    });
+
+    el.querySelector('.dl').addEventListener('click', async () => {
+      const blob = await api.getResult(taskId);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'autotone-result.jpg';
+      a.click();
+    });
+
+    // Кнопка "Отменить" полностью убирает загруженное фото с сайта:
+    // сначала пытаемся прервать задачу (если она ещё обрабатывается),
+    // затем в любом случае удаляем карточку из очереди и освобождаем
+    // ресурсы (ObjectURL, ResizeObserver), независимо от того, успела
+    // задача завершиться или нет.
+    el.querySelector('.cancel').addEventListener('click', async () => {
+      await api.cancelTask(taskId);
+      const row = rows.get(taskId);
+      if (row) {
+        row.ro.disconnect();
+        URL.revokeObjectURL(row.previewUrl);
+        row.el.remove();
+        rows.delete(taskId);
+      }
+      logLine(`загрузка убрана с сайта: ${taskId.slice(0, 8)}`);
+    });
+  }
+</script>
+</body>
+</html>

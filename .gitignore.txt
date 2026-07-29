@@ -1,0 +1,19 @@
+# сгенерированные данные и тяжёлые артефакты обучения — не нужны в репозитории
+backend/data/
+backend/reference_images/
+backend/eval_images/
+backend/eval_results/
+backend/best_model.h5
+backend/*.keras
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
